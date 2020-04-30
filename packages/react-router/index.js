@@ -450,7 +450,7 @@ if (__DEV__) {
  * We should probably write this up in TypeScript instead of in a comment. In
  * fact, what am I even doing here. Nobody is ever going to read this.
  */
-export function useRoutes(routes, basename = '', caseSensitive = false) {
+export function useRoutes(routes, basename = '', caseSensitive = false, location = null) {
   let {
     params: parentParams,
     pathname: parentPathname,
@@ -476,7 +476,8 @@ export function useRoutes(routes, basename = '', caseSensitive = false) {
 
   basename = basename ? joinPaths([parentPathname, basename]) : parentPathname;
 
-  let location = useLocation();
+  location = location || useLocation();
+
   let matches = React.useMemo(
     () => matchRoutes(routes, location, basename, caseSensitive),
     [routes, location, basename, caseSensitive]
