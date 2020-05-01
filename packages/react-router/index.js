@@ -476,7 +476,9 @@ export function useRoutes(routes, basename = '', caseSensitive = false, location
 
   basename = basename ? joinPaths([parentPathname, basename]) : parentPathname;
 
-  location = location || useLocation();
+
+  let currentLocation = useLocation();
+  location = location || currentLocation;
 
   let matches = React.useMemo(
     () => matchRoutes(routes, location, basename, caseSensitive),
