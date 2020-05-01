@@ -476,7 +476,6 @@ export function useRoutes(routes, basename = '', caseSensitive = false, location
 
   basename = basename ? joinPaths([parentPathname, basename]) : parentPathname;
 
-
   let currentLocation = useLocation();
   location = location || currentLocation;
 
