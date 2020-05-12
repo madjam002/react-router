@@ -304,14 +304,16 @@ if (__DEV__) {
  */
 export function Routes({
   basename = '',
+  location,
   children
 }: RoutesProps): React.ReactElement | null {
   let routes = createRoutesFromChildren(children);
-  return useRoutes_(routes, { basename });
+  return useRoutes_(routes, { basename, location });
 }
 
 export interface RoutesProps {
   basename?: string;
+  location?: Location;
   children?: React.ReactNode;
 }
 
@@ -521,8 +523,8 @@ export function useResolvedLocation(to: To): ResolvedLocation {
 }
 
 interface RoutesOptions {
-  basename?: string,
-  location?: Location,
+  basename?: string;
+  location?: Location;
 }
 
 /**
@@ -533,7 +535,7 @@ interface RoutesOptions {
  */
 export function useRoutes(
   partialRoutes: PartialRouteObject[],
-  { basename = "", location = null }: RoutesOptions
+  { basename = "", location }: RoutesOptions = {}
 ): React.ReactElement | null {
   invariant(
     useInRouterContext(),
@@ -563,7 +565,7 @@ function warnAboutMissingTrailingSplatAt(
 
 function useRoutes_(
   routes: RouteObject[],
-  { basename = "", location = null }: RoutesOptions
+  { basename = "", location }: RoutesOptions = {}
 ): React.ReactElement | null {
   let {
     route: parentRoute,
@@ -591,9 +593,9 @@ function useRoutes_(
   basename = basename ? joinPaths([parentPathname, basename]) : parentPathname;
 
   let currentLocation = useLocation() as Location;
-  location = location || currentLocation;
+  let usedLocation = location || currentLocation;
 
-  let matches = React.useMemo(() => matchRoutes(routes, location, basename), [
+  let matches = React.useMemo(() => matchRoutes(routes, usedLocation, basename), [
     location,
     routes,
     basename
