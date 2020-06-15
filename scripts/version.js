@@ -1,19 +1,17 @@
-const path = require('path');
-const execSync = require('child_process').execSync;
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
-const chalk = require('chalk');
-const Confirm = require('prompt-confirm');
-const jsonfile = require('jsonfile');
-const semver = require('semver');
+import chalk from 'chalk';
+import Confirm from 'prompt-confirm';
+import jsonfile from 'jsonfile';
+import semver from 'semver';
 
-const rootDir = path.resolve(__dirname, '..');
+const dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(dirname, '..');
 
 function packageJson(packageName) {
   return path.join(rootDir, 'packages', packageName, 'package.json');
-}
-
-function exec(cmd) {
-  return execSync(cmd, { env: process.env }).toString();
 }
 
 function invariant(cond, message) {
@@ -21,8 +19,10 @@ function invariant(cond, message) {
 }
 
 function ensureCleanWorkingDirectory() {
-  let status = exec(`git status --porcelain`);
-  let lines = status.trim().split('\n');
+  let status = execSync(`git status --porcelain`)
+    .toString()
+    .trim();
+  let lines = status.split('\n');
   invariant(
     lines.every(line => line === '' || line.startsWith('?')),
     'Working directory is not clean. Please commit or stash your changes.'
@@ -42,7 +42,15 @@ function getNextVersion(currentVersion, givenVersion, prereleaseId) {
     );
   }
 
-  let nextVersion = semver.inc(currentVersion, givenVersion, prereleaseId);
+  let nextVersion;
+  if (givenVersion === 'experimental') {
+    let hash = execSync(`git rev-parse --short HEAD`)
+      .toString()
+      .trim();
+    nextVersion = `0.0.0-experimental-${hash}`;
+  } else {
+    nextVersion = semver.inc(currentVersion, givenVersion, prereleaseId);
+  }
 
   invariant(nextVersion != null, `Invalid version specifier: ${givenVersion}`);
 
@@ -116,8 +124,8 @@ async function run() {
     );
 
     // 6. Commit and tag
-    exec(`git commit --all --message="Version ${version}"`);
-    exec(`git tag -a -m "Version ${version}" v${version}`);
+    execSync(`git commit --all --message="Version ${version}"`);
+    execSync(`git tag -a -m "Version ${version}" v${version}`);
     console.log(chalk.green(`  Committed and tagged version ${version}`));
   } catch (error) {
     console.log();

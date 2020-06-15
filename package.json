@@ -1,5 +1,6 @@
 {
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "node ./scripts/build.js",
     "clean": "git clean -e '!/website-deploy-key' -e '!/website-deploy-key.pub' -fdX .",
@@ -8,7 +9,8 @@
     "size": "filesize",
     "test": "node ./scripts/test.js",
     "version": "node ./scripts/version.js",
-    "watch": "node ./scripts/watch.js"
+    "watch": "node ./scripts/watch.js",
+    "generate-api-docs": "node ./scripts/generate-api-docs.js"
   },
   "dependencies": {
     "@ampproject/filesize": "^2.1.1",
@@ -53,8 +55,8 @@
     "rollup-plugin-copy": "^3.1.0",
     "rollup-plugin-prettier": "^0.6.0",
     "rollup-plugin-terser": "^5.1.2",
-    "rollup-plugin-typescript2": "^0.27.0",
     "semver": "^7.1.2",
+    "typedoc": "^0.17.6",
     "typescript": "^3.8.3"
   },
   "workspaces": {

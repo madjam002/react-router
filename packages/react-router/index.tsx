@@ -1,25 +1,23 @@
 import * as React from 'react';
 import PropTypes from 'prop-types';
 import {
-  // types
   Action,
-  Path,
-  State,
+  Blocker,
+  History,
+  InitialEntry,
   LocationPieces,
   Location,
-  Update,
-  Transition,
-  Blocker,
-  To,
-  History,
   MemoryHistory,
-  InitialEntry,
-  // utils
+  Path,
+  State,
+  To,
+  Transition,
+  Update,
   createMemoryHistory,
   parsePath
 } from 'history';
 
-const readOnly: (obj: any) => any = __DEV__
+const readOnly: <T extends unknown>(obj: T) => T = __DEV__
   ? obj => Object.freeze(obj)
   : obj => obj;
 
@@ -33,9 +31,26 @@ function warning(cond: boolean, message: string): void {
     if (typeof console !== 'undefined') console.warn(message);
 
     try {
+      // Welcome to debugging React Router!
+      //
+      // This error is thrown as a convenience so you can more easily
+      // find the source for a warning that appears in the console by
+      // enabling "pause on exceptions" in your JavaScript debugger.
       throw new Error(message);
       // eslint-disable-next-line no-empty
     } catch (e) {}
+  }
+}
+
+const alreadyWarned: Record<string, boolean> = {};
+function warningOnce(
+  key: string,
+  cond: boolean,
+  message: string
+) {
+  if (!cond && !alreadyWarned[key]) {
+    alreadyWarned[key] = true;
+    warning(false, message);
   }
 }
 
@@ -76,7 +91,7 @@ if (__DEV__) {
 
 const RouteContext = React.createContext<RouteContextObject>({
   outlet: null,
-  params: readOnly({}),
+  params: readOnly<Params>({}),
   pathname: '',
   route: null
 });
@@ -98,6 +113,8 @@ if (__DEV__) {
 
 /**
  * A <Router> that stores all entries in memory.
+ *
+ * @see https://reactrouter.com/api/memoryrouter
  */
 export function MemoryRouter({
   children,
@@ -140,7 +157,6 @@ if (__DEV__) {
   MemoryRouter.displayName = 'MemoryRouter';
   MemoryRouter.propTypes = {
     children: PropTypes.node,
-    timeout: PropTypes.number,
     initialEntries: PropTypes.arrayOf(
       PropTypes.oneOfType([
         PropTypes.string,
@@ -158,7 +174,13 @@ if (__DEV__) {
 }
 
 /**
- * Navigate programmatically using a component.
+ * Changes the current location.
+ *
+ * Note: This API is mostly useful in React.Component subclasses that are not
+ * able to use hooks. In functional components, we recommend you use the
+ * `useNavigate` hook instead.
+ *
+ * @see https://reactrouter.com/api/Navigate
  */
 export function Navigate({ to, replace, state }: NavigateProps): null {
   invariant(
@@ -207,6 +229,8 @@ if (__DEV__) {
 
 /**
  * Renders the child route's element, if there is one.
+ *
+ * @see https://reactrouter.com/api/Outlet
  */
 export function Outlet(): React.ReactElement | null {
   return useOutlet();
@@ -220,7 +244,9 @@ if (__DEV__) {
 }
 
 /**
- * Used in a route config to render an element.
+ * Declares an element that should be rendered at a certain URL path.
+ *
+ * @see https://reactrouter.com/api/Route
  */
 export function Route({
   element = <Outlet />
@@ -229,14 +255,17 @@ export function Route({
 }
 
 export interface RouteProps {
+  caseSensitive?: boolean;
   children?: React.ReactNode;
   element?: React.ReactElement | null;
   path?: string;
+  preload?: RoutePreloadFunction;
 }
 
 if (__DEV__) {
   Route.displayName = 'Route';
   Route.propTypes = {
+    caseSensitive: PropTypes.bool,
     children: PropTypes.node,
     element: PropTypes.element,
     path: PropTypes.string
@@ -244,10 +273,13 @@ if (__DEV__) {
 }
 
 /**
- * The low-level root context provider in a React Router app. You usually won't
- * render a <Router> directly. Instead, you'll render a router that is more
- * specific to your environment such as a <BrowserRouter> in web browsers or a
- * <StaticRouter> for server rendering.
+ * Provides location context for the rest of the app.
+ *
+ * Note: You usually won't render a <Router> directly. Instead, you'll render a
+ * router that is more specific to your environment such as a <BrowserRouter>
+ * in web browsers or a <StaticRouter> for server rendering.
+ *
+ * @see https://reactrouter.com/api/Router
  */
 export function Router({
   children = null,
@@ -272,8 +304,8 @@ export function Router({
 }
 
 export interface RouterProps {
-  children?: React.ReactNode;
   action?: Action;
+  children?: React.ReactNode;
   location: Location;
   navigator: Navigator;
   pending?: boolean;
@@ -301,6 +333,8 @@ if (__DEV__) {
 /**
  * A container for a nested tree of <Route> elements that renders the branch
  * that best matches the current location.
+ *
+ * @see https://reactrouter.com/api/Routes
  */
 export function Routes({
   basename = '',
@@ -321,7 +355,6 @@ if (__DEV__) {
   Routes.displayName = 'Routes';
   Routes.propTypes = {
     basename: PropTypes.string,
-    caseSensitive: PropTypes.bool,
     children: PropTypes.node
   };
 }
@@ -333,6 +366,8 @@ if (__DEV__) {
 /**
  * Blocks all navigation attempts. This is useful for preventing the page from
  * changing until some condition is met, like saving form data.
+ *
+ * @see https://reactrouter.com/api/useBlocker
  */
 export function useBlocker(blocker: Blocker, when = true): void {
   invariant(
@@ -369,6 +404,8 @@ export function useBlocker(blocker: Blocker, when = true): void {
 /**
  * Returns the full href for the given "to" value. This is useful for building
  * custom links that are also accessible and preserve right-click behavior.
+ *
+ * @see https://reactrouter.com/api/useHref
  */
 export function useHref(to: To): string {
   invariant(
@@ -386,6 +423,8 @@ export function useHref(to: To): string {
 
 /**
  * Returns true if this component is a descendant of a <Router>.
+ *
+ * @see https://reactrouter.com/api/useInRouterContext
  */
 export function useInRouterContext(): boolean {
   return React.useContext(LocationContext).location != null;
@@ -395,9 +434,11 @@ export function useInRouterContext(): boolean {
  * Returns the current location object, which represents the current URL in web
  * browsers.
  *
- * NOTE: If you're using this it may mean you're doing some of your own
- * "routing" in your app, and we'd like to know what your use case is. We may be
- * able to provide something higher-level to better suit your needs.
+ * Note: If you're using this it may mean you're doing some of your own
+ * "routing" in your app, and we'd like to know what your use case is. We may
+ * be able to provide something higher-level to better suit your needs.
+ *
+ * @see https://reactrouter.com/api/useLocation
  */
 export function useLocation(): Location {
   invariant(
@@ -412,6 +453,8 @@ export function useLocation(): Location {
 
 /**
  * Returns true if the router is pending a location update.
+ *
+ * @see https://reactrouter.com/api/useLocationPending
  */
 export function useLocationPending(): boolean {
   return React.useContext(LocationContext).pending;
@@ -421,6 +464,8 @@ export function useLocationPending(): boolean {
  * Returns true if the URL for the given "to" value matches the current URL.
  * This is useful for components that need to know "active" state, e.g.
  * <NavLink>.
+ *
+ * @see https://reactrouter.com/api/useMatch
  */
 export function useMatch(path: PathPattern): PathMatch | null {
   invariant(
@@ -442,13 +487,15 @@ type PathPattern =
  * The interface for the navigate() function returned from useNavigate().
  */
 export interface NavigateFunction {
-  (delta: number): void;
   (to: To, options?: { replace?: boolean; state?: State }): void;
+  (delta: number): void;
 }
 
 /**
  * Returns an imperative method for changing the location. Used by <Link>s, but
  * may also be used by other elements to change the location.
+ *
+ * @see https://reactrouter.com/api/useNavigate
  */
 export function useNavigate(): NavigateFunction {
   invariant(
@@ -498,24 +545,30 @@ export function useNavigate(): NavigateFunction {
 }
 
 /**
- * Returns the outlet element at this level of the route hierarchy. Used to
- * render child routes.
+ * Returns the element for the child route at this level of the route
+ * hierarchy. Used internally by <Outlet> to render child routes.
+ *
+ * @see https://reactrouter.com/api/useOutlet
  */
 export function useOutlet(): React.ReactElement | null {
   return React.useContext(RouteContext).outlet;
 }
 
 /**
- * Returns a hash of the dynamic params that were matched in the route path.
- * This is useful for using ids embedded in the URL to fetch data, but we
- * eventually want to provide something at a higher level for this.
+ * Returns an object of key/value pairs of the dynamic params from the current
+ * URL that were matched by the route path.
+ *
+ * @see https://reactrouter.com/api/useParams
  */
 export function useParams(): Params {
   return React.useContext(RouteContext).params;
 }
 
 /**
- * Returns a fully-resolved location object relative to the current location.
+ * Resolves the pathname of the location in the given `to` value against the
+ * current location.
+ *
+ * @see https://reactrouter.com/api/useResolvedLocation
  */
 export function useResolvedLocation(to: To): ResolvedLocation {
   let { pathname } = React.useContext(RouteContext);
@@ -532,10 +585,12 @@ interface RoutesOptions {
  * with the correct context to render the remainder of the route tree. Route
  * elements in the tree must render an <Outlet> to render their child route's
  * element.
+ *
+ * @see https://reactrouter.com/api/useRoutes
  */
 export function useRoutes(
   partialRoutes: PartialRouteObject[],
-  { basename = "", location }: RoutesOptions = {}
+  { basename = '', location }: RoutesOptions = {}
 ): React.ReactElement | null {
   invariant(
     useInRouterContext(),
@@ -549,18 +604,6 @@ export function useRoutes(
   ]);
 
   return useRoutes_(routes, { basename, location });
-}
-
-let missingTrailingSplatWarnings: { [key: string]: boolean } = {};
-function warnAboutMissingTrailingSplatAt(
-  pathname: string,
-  cond: boolean,
-  message: string
-) {
-  if (!cond && !missingTrailingSplatWarnings[pathname]) {
-    missingTrailingSplatWarnings![pathname] = true;
-    warning(false, message);
-  }
 }
 
 function useRoutes_(
@@ -578,7 +621,7 @@ function useRoutes_(
     // without a trailing *, but this is a best-effort warning anyway since we
     // cannot even give the warning unless they land at the parent route.
     let parentPath = parentRoute && parentRoute.path;
-    warnAboutMissingTrailingSplatAt(
+    warningOnce(
       parentPathname,
       !parentRoute || parentRoute.path.endsWith('*'),
       `You rendered descendant <Routes> (or called \`useRoutes\`) at "${parentPathname}"` +
@@ -591,6 +634,8 @@ function useRoutes_(
   }
 
   basename = basename ? joinPaths([parentPathname, basename]) : parentPathname;
+
+  let locationPreloadRef = React.useRef<Location>();
 
   let currentLocation = useLocation() as Location;
   let usedLocation = location || currentLocation;
@@ -606,7 +651,15 @@ function useRoutes_(
     return null;
   }
 
-  // TODO: Initiate preload sequence here.
+  // Initiate preload sequence only if the location changes, otherwise state
+  // updates in a parent would re-call preloads.
+  if (locationPreloadRef.current !== location) {
+    locationPreloadRef.current = location;
+    matches.forEach(
+      ({ route, params }, index) =>
+        route.preload && route.preload(params, location, index)
+    );
+  }
 
   // Otherwise render an element.
   let element = matches.reduceRight((outlet, { params, pathname, route }) => {
@@ -615,7 +668,7 @@ function useRoutes_(
         children={route.element}
         value={{
           outlet,
-          params: readOnly({ ...parentParams, ...params }),
+          params: readOnly<Params>({ ...parentParams, ...params }),
           pathname: joinPaths([basename, pathname]),
           route
         }}
@@ -631,17 +684,20 @@ function useRoutes_(
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
- * Utility function that creates a routes config object from an array of
- * PartialRouteObject objects.
+ * Creates a route config from an array of JavaScript objects. Used internally
+ * by `useRoutes` to normalize the route config.
+ *
+ * @see https://reactrouter.com/api/createRoutesFromArray
  */
 export function createRoutesFromArray(
   array: PartialRouteObject[]
 ): RouteObject[] {
   return array.map(partialRoute => {
     let route: RouteObject = {
+      path: partialRoute.path || '/',
       caseSensitive: partialRoute.caseSensitive === true,
       element: partialRoute.element || <Outlet />,
-      path: partialRoute.path || '/'
+      preload: partialRoute.preload
     };
 
     if (partialRoute.children) {
@@ -653,8 +709,11 @@ export function createRoutesFromArray(
 }
 
 /**
- * Utility function that creates a routes config object from a React "children"
- * object, which is usually either a <Route> element or an array of them.
+ * Creates a route config from a React "children" object, which is usually
+ * either a `<Route>` element or an array of them. Used internally by
+ * `<Routes>` to create a route config from its children.
+ *
+ * @see https://reactrouter.com/api/createRoutesFromChildren
  */
 export function createRoutesFromChildren(
   children: React.ReactNode
@@ -678,12 +737,13 @@ export function createRoutesFromChildren(
     }
 
     let route: RouteObject = {
+      path: element.props.path || '/',
       caseSensitive: element.props.caseSensitive === true,
       // Default behavior is to just render the element that was given. This
       // permits people to use any element they prefer, not just <Route> (though
       // all our official examples and docs use <Route> for clarity).
       element,
-      path: element.props.path || '/'
+      preload: element.props.preload
     };
 
     if (element.props.children) {
@@ -700,30 +760,54 @@ export function createRoutesFromChildren(
 }
 
 /**
- * A "partial route" object is usually supplied by the user and may omit certain
- * properties of a real route object such as `path` and `element`, which have
- * reasonable defaults.
+ * The parameters that were parsed from the URL path.
  */
-export interface PartialRouteObject {
-  caseSensitive?: boolean;
-  children?: PartialRouteObject[];
-  element?: React.ReactNode;
-  path?: string;
-}
+export type Params = Record<string, string>;
 
 /**
- * A route object represents a logical route, with (optionally) its child routes
- * organized in a tree-like structure.
+ * A route object represents a logical route, with (optionally) its child
+ * routes organized in a tree-like structure.
  */
 export interface RouteObject {
   caseSensitive: boolean;
   children?: RouteObject[];
   element: React.ReactNode;
   path: string;
+  preload?: RoutePreloadFunction;
 }
 
 /**
- * Creates a path with params interpolated.
+ * A "partial route" object is usually supplied by the user and may omit
+ * certain properties of a real route object such as `path` and `element`,
+ * which have reasonable defaults.
+ */
+export interface PartialRouteObject {
+  caseSensitive?: boolean;
+  children?: PartialRouteObject[];
+  element?: React.ReactNode;
+  path?: string;
+  preload?: RoutePreloadFunction;
+}
+
+/**
+ * A function that will be called when the router is about to render the
+ * associated route. This function usually kicks off a fetch or similar
+ * operation that primes a local data cache for retrieval while rendering
+ * later.
+ */
+type RoutePreloadFunction = (
+  params: Params,
+  location: Location,
+  index: number
+) => void;
+
+
+export type ResolvedLocation = Omit<Location, 'state' | 'key'>;
+
+/**
+ * Returns a path with params interpolated.
+ *
+ * @see https://reactrouter.com/api/generatePath
  */
 export function generatePath(pathname: string, params: Params = {}): string {
   return pathname
@@ -737,12 +821,9 @@ export function generatePath(pathname: string, params: Params = {}): string {
 }
 
 /**
- * The parameters that were parsed from the URL path.
- */
-export type Params = Record<string, string>;
-
-/**
  * Matches the given routes to a location and returns the match data.
+ *
+ * @see https://reactrouter.com/api/matchRoutes
  */
 export function matchRoutes(
   routes: RouteObject[],
@@ -810,10 +891,10 @@ function flattenRoutes(
 type RouteBranch = [string, RouteObject[], number[]];
 
 function rankRouteBranches(branches: RouteBranch[]): void {
-  let pathScores = branches.reduce((memo, [path]) => {
+  let pathScores = branches.reduce<Record<string, number>>((memo, [path]) => {
     memo[path] = computeScore(path);
     return memo;
-  }, {} as { [key: string]: number });
+  }, {});
 
   // Sorting is stable in modern browsers, but we still support IE 11, so we
   // need this little helper.
@@ -912,7 +993,7 @@ function matchRouteBranch(
     matches.push({
       route,
       pathname: matchedPathname,
-      params: readOnly(matchedParams)
+      params: readOnly<Params>(matchedParams)
     });
   }
 
@@ -920,8 +1001,10 @@ function matchRouteBranch(
 }
 
 /**
- * Performs pattern matching on a URL pathname and returns information about the
- * match.
+ * Performs pattern matching on a URL pathname and returns information about
+ * the match.
+ *
+ * @see https://reactrouter.com/api/matchPath
  */
 export function matchPath(
   pattern: PathPattern,
@@ -1006,11 +1089,10 @@ function safelyDecodeURIComponent(value: string, paramName: string) {
 
 /**
  * Returns a fully resolved location object relative to the given pathname.
+ *
+ * @see https://reactrouter.com/api/resolveLocation
  */
-export function resolveLocation(
-  to: To,
-  fromPathname: string = '/'
-): ResolvedLocation {
+export function resolveLocation(to: To, fromPathname = '/'): ResolvedLocation {
   let { pathname: toPathname, search = '', hash = '' } =
     typeof to === 'string' ? parsePath(to) : to;
 
@@ -1023,8 +1105,6 @@ export function resolveLocation(
 
   return { pathname, search, hash };
 }
-
-export type ResolvedLocation = Omit<Location, 'state' | 'key'>;
 
 const trimTrailingSlashes = (path: string) => path.replace(/\/+$/, '');
 const normalizeSlashes = (path: string) => path.replace(/\/\/+/g, '/');

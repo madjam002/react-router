@@ -1,10 +1,12 @@
-const execSync = require('child_process').execSync;
-const path = require('path');
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
-const jsonfile = require('jsonfile');
-const semver = require('semver');
+import jsonfile from 'jsonfile';
+import semver from 'semver';
 
-const rootDir = path.resolve(__dirname, '..');
+const dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(dirname, '..');
 
 function invariant(cond, message) {
   if (!cond) throw new Error(message);
@@ -48,7 +50,11 @@ async function run() {
     );
 
     // 2. Determine the appropriate npm tag to use
-    let tag = semver.prerelease(version) == null ? 'latest' : 'next';
+    let tag = version.includes('-experimental-')
+      ? 'experimental'
+      : semver.prerelease(version) == null
+      ? 'latest'
+      : 'next';
 
     console.log();
     console.log(`  Publishing version ${version} to npm with tag "${tag}"`);
