@@ -653,11 +653,11 @@ function useRoutes_(
 
   // Initiate preload sequence only if the location changes, otherwise state
   // updates in a parent would re-call preloads.
-  if (locationPreloadRef.current !== location) {
-    locationPreloadRef.current = location;
+  if (locationPreloadRef.current !== usedLocation) {
+    locationPreloadRef.current = usedLocation;
     matches.forEach(
       ({ route, params }, index) =>
-        route.preload && route.preload(params, location, index)
+        route.preload && route.preload(params, usedLocation, index)
     );
   }
 
