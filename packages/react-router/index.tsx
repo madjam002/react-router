@@ -5,9 +5,9 @@ import {
   Blocker,
   History,
   InitialEntry,
-  LocationPieces,
   Location,
   MemoryHistory,
+  PartialLocation,
   Path,
   State,
   To,
@@ -73,7 +73,6 @@ export type Navigator = Omit<
 >;
 
 const LocationContext = React.createContext<LocationContextObject>({
-  pending: false,
   static: false
 });
 
@@ -81,7 +80,6 @@ interface LocationContextObject {
   action?: Action;
   location?: Location;
   navigator?: Navigator;
-  pending: boolean;
   static: boolean;
 }
 
@@ -114,7 +112,7 @@ if (__DEV__) {
 /**
  * A <Router> that stores all entries in memory.
  *
- * @see https://reactrouter.com/api/memoryrouter
+ * @see https://reactrouter.com/api/MemoryRouter
  */
 export function MemoryRouter({
   children,
@@ -259,7 +257,6 @@ export interface RouteProps {
   children?: React.ReactNode;
   element?: React.ReactElement | null;
   path?: string;
-  preload?: RoutePreloadFunction;
 }
 
 if (__DEV__) {
@@ -286,7 +283,6 @@ export function Router({
   action = Action.Pop,
   location,
   navigator,
-  pending = false,
   static: staticProp = false
 }: RouterProps): React.ReactElement {
   invariant(
@@ -298,7 +294,7 @@ export function Router({
   return (
     <LocationContext.Provider
       children={children}
-      value={{ action, location, navigator, pending, static: staticProp }}
+      value={{ action, location, navigator, static: staticProp }}
     />
   );
 }
@@ -308,7 +304,6 @@ export interface RouterProps {
   children?: React.ReactNode;
   location: Location;
   navigator: Navigator;
-  pending?: boolean;
   static?: boolean;
 }
 
@@ -325,7 +320,6 @@ if (__DEV__) {
       go: PropTypes.func.isRequired,
       block: PropTypes.func.isRequired
     }).isRequired,
-    pending: PropTypes.bool,
     static: PropTypes.bool
   };
 }
@@ -416,9 +410,9 @@ export function useHref(to: To): string {
   );
 
   let navigator = React.useContext(LocationContext).navigator as Navigator;
-  let resolvedLocation = useResolvedLocation(to);
+  let path = useResolvedPath(to);
 
-  return navigator.createHref(resolvedLocation);
+  return navigator.createHref(path);
 }
 
 /**
@@ -452,22 +446,13 @@ export function useLocation(): Location {
 }
 
 /**
- * Returns true if the router is pending a location update.
- *
- * @see https://reactrouter.com/api/useLocationPending
- */
-export function useLocationPending(): boolean {
-  return React.useContext(LocationContext).pending;
-}
-
-/**
  * Returns true if the URL for the given "to" value matches the current URL.
  * This is useful for components that need to know "active" state, e.g.
  * <NavLink>.
  *
  * @see https://reactrouter.com/api/useMatch
  */
-export function useMatch(path: PathPattern): PathMatch | null {
+export function useMatch(pattern: PathPattern): PathMatch | null {
   invariant(
     useInRouterContext(),
     // TODO: This error is probably because they somehow have 2 versions of the
@@ -476,7 +461,7 @@ export function useMatch(path: PathPattern): PathMatch | null {
   );
 
   let location = useLocation() as Location;
-  return matchPath(path, location.pathname);
+  return matchPath(pattern, location.pathname);
 }
 
 type PathPattern =
@@ -507,7 +492,6 @@ export function useNavigate(): NavigateFunction {
 
   let locationContext = React.useContext(LocationContext);
   let navigator = locationContext.navigator as Navigator;
-  let pending = locationContext.pending;
   let { pathname } = React.useContext(RouteContext);
 
   let activeRef = React.useRef(false);
@@ -521,12 +505,9 @@ export function useNavigate(): NavigateFunction {
         if (typeof to === 'number') {
           navigator.go(to);
         } else {
-          let relativeTo = resolveLocation(to, pathname);
-          // If we are pending transition, use REPLACE instead of PUSH. This
-          // will prevent URLs that we started navigating to but never fully
-          // loaded from appearing in the history stack.
-          (!!options.replace || pending ? navigator.replace : navigator.push)(
-            relativeTo,
+          let path = resolvePath(to, pathname);
+          (!!options.replace ? navigator.replace : navigator.push)(
+            path,
             options.state
           );
         }
@@ -538,7 +519,7 @@ export function useNavigate(): NavigateFunction {
         );
       }
     },
-    [navigator, pathname, pending]
+    [navigator, pathname]
   );
 
   return navigate;
@@ -565,14 +546,13 @@ export function useParams(): Params {
 }
 
 /**
- * Resolves the pathname of the location in the given `to` value against the
- * current location.
+ * Resolves the pathname of the given `to` value against the current location.
  *
- * @see https://reactrouter.com/api/useResolvedLocation
+ * @see https://reactrouter.com/api/useResolvedPath
  */
-export function useResolvedLocation(to: To): ResolvedLocation {
+export function useResolvedPath(to: To): Path {
   let { pathname } = React.useContext(RouteContext);
-  return React.useMemo(() => resolveLocation(to, pathname), [to, pathname]);
+  return React.useMemo(() => resolvePath(to, pathname), [to, pathname]);
 }
 
 interface RoutesOptions {
@@ -608,7 +588,7 @@ export function useRoutes(
 
 function useRoutes_(
   routes: RouteObject[],
-  { basename = "", location }: RoutesOptions = {}
+  { basename = '', location }: RoutesOptions = {}
 ): React.ReactElement | null {
   let {
     route: parentRoute,
@@ -635,8 +615,6 @@ function useRoutes_(
 
   basename = basename ? joinPaths([parentPathname, basename]) : parentPathname;
 
-  let locationPreloadRef = React.useRef<Location>();
-
   let currentLocation = useLocation() as Location;
   let usedLocation = location || currentLocation;
 
@@ -649,16 +627,6 @@ function useRoutes_(
   if (!matches) {
     // TODO: Warn about nothing matching, suggest using a catch-all route.
     return null;
-  }
-
-  // Initiate preload sequence only if the location changes, otherwise state
-  // updates in a parent would re-call preloads.
-  if (locationPreloadRef.current !== usedLocation) {
-    locationPreloadRef.current = usedLocation;
-    matches.forEach(
-      ({ route, params }, index) =>
-        route.preload && route.preload(params, usedLocation, index)
-    );
   }
 
   // Otherwise render an element.
@@ -696,8 +664,7 @@ export function createRoutesFromArray(
     let route: RouteObject = {
       path: partialRoute.path || '/',
       caseSensitive: partialRoute.caseSensitive === true,
-      element: partialRoute.element || <Outlet />,
-      preload: partialRoute.preload
+      element: partialRoute.element || <Outlet />
     };
 
     if (partialRoute.children) {
@@ -742,8 +709,7 @@ export function createRoutesFromChildren(
       // Default behavior is to just render the element that was given. This
       // permits people to use any element they prefer, not just <Route> (though
       // all our official examples and docs use <Route> for clarity).
-      element,
-      preload: element.props.preload
+      element
     };
 
     if (element.props.children) {
@@ -773,7 +739,6 @@ export interface RouteObject {
   children?: RouteObject[];
   element: React.ReactNode;
   path: string;
-  preload?: RoutePreloadFunction;
 }
 
 /**
@@ -786,31 +751,15 @@ export interface PartialRouteObject {
   children?: PartialRouteObject[];
   element?: React.ReactNode;
   path?: string;
-  preload?: RoutePreloadFunction;
 }
-
-/**
- * A function that will be called when the router is about to render the
- * associated route. This function usually kicks off a fetch or similar
- * operation that primes a local data cache for retrieval while rendering
- * later.
- */
-type RoutePreloadFunction = (
-  params: Params,
-  location: Location,
-  index: number
-) => void;
-
-
-export type ResolvedLocation = Omit<Location, 'state' | 'key'>;
 
 /**
  * Returns a path with params interpolated.
  *
  * @see https://reactrouter.com/api/generatePath
  */
-export function generatePath(pathname: string, params: Params = {}): string {
-  return pathname
+export function generatePath(path: string, params: Params = {}): string {
+  return path
     .replace(/:(\w+)/g, (_, key) => {
       invariant(params[key] != null, `Missing ":${key}" param`);
       return params[key];
@@ -827,7 +776,7 @@ export function generatePath(pathname: string, params: Params = {}): string {
  */
 export function matchRoutes(
   routes: RouteObject[],
-  location: Path | LocationPieces,
+  location: string | PartialLocation,
   basename = ''
 ): RouteMatch[] | null {
   if (typeof location === 'string') {
@@ -1088,11 +1037,11 @@ function safelyDecodeURIComponent(value: string, paramName: string) {
 }
 
 /**
- * Returns a fully resolved location object relative to the given pathname.
+ * Returns a resolved path object relative to the given pathname.
  *
- * @see https://reactrouter.com/api/resolveLocation
+ * @see https://reactrouter.com/api/resolvePath
  */
-export function resolveLocation(to: To, fromPathname = '/'): ResolvedLocation {
+export function resolvePath(to: To, fromPathname = '/'): Path {
   let { pathname: toPathname, search = '', hash = '' } =
     typeof to === 'string' ? parsePath(to) : to;
 

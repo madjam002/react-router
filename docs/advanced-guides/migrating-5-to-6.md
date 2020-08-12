@@ -38,7 +38,7 @@ In general, the process looks like this:
     - Use `useNavigate` hook instead of `useHistory`
     - Use `<Navigate>` instead of `<Redirect>`
   - [Use `useRoutes` instead of `react-router-config`](#use-useroutes-instead-of-react-router-config)
-  - [Rename `<Link component>` to `<Link as>`](#rename-link-component-to-link-as)
+  - [Rename `<Link component>` to `<Link as>` and `<NavLink exact>` to `<NavLink end>`](#rename-link-component-to-link-as-and-navlink-exact-to-navlink-end)
   - [Get `StaticRouter` from `react-router-dom/server`](#get-staticrouter-from-react-router-domserver)
   - [Move `basename` from `<Router>` to `<Routes>`](#move-basename-from-router-to-routes)
 
@@ -129,13 +129,13 @@ pick this guide back up when you're ready to continue.
 **Heads up:** This is the biggest step in the migration and will probably take
 the most time and effort.
 
-For this step, you'll need to install React Router v6. If you're managing
-dependencies via npm:
+For this step, you'll need to install React Router v6 and the history library, 
+which is now a peer dependency. If you're managing dependencies via npm:
 
 ```
-$ npm install react-router@next react-router-dom@next
+$ npm install react-router@next react-router-dom@next history
 # or, for a React Native app
-$ npm install react-router@next react-router-native@next
+$ npm install react-router@next react-router-native@next history
 ```
 
 ### Upgrade all `<Switch>` elements to `<Routes>`
@@ -681,7 +681,7 @@ function SomeForm() {
 }
 ```
 
-## Rename `<Link component>` to `<Link as>`
+## Rename `<Link component>` to `<Link as>` and `<NavLink exact>` to `<NavLink end>`
 
 This is a simple renaming of a prop to better align with the common practice of
 other libraries in the React ecosystem including styled-components and Reach UI.
